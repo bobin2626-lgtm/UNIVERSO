@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuestro Espacio ✨ Rain</title>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    <style>
+        :root {
+            --accent: #d8b4fe;
+            --bg-deep: #1a0b3b;
+            --glass: rgba(30, 15, 60, 0.7);
+            --text-main: #f3e8ff;
+        }
+
+        body {
+            margin: 0; padding: 0; min-height: 100vh;
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: var(--text-main); background: var(--bg-deep);
+            display: flex; justify-content: center; overflow-x: hidden;
+        }
+
+        /* FONDO Y LLUVIA */
+        .galaxy-bg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 10%, #2e1065 0%, #0f0720 100%);
+            z-index: -3;
+        }
+
+        .rain {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; pointer-events: none;
+        }
+
+        .drop {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.15);
+            width: 1px;
+            height: 50px;
+            top: -100px;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(110vh); }
+        }
+
+        /* NOTIFICACIÓN */
+        #toast {
+            position: fixed; top: 15px; width: 85%; max-width: 320px;
+            background: #fff; color: #1a0b3b; padding: 15px;
+            border-radius: 12px; text-align: center; font-weight: bold;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 1000;
+            display: none; animation: slideDown 0.5s ease;
+        }
+        @keyframes slideDown { from { transform: translateY(-100px); } to { transform: translateY(0); } }
+
+        .container { width: 92%; max-width: 460px; padding: 30px 0; z-index: 1; }
+
+        .intro {
+            background: var(--glass); padding: 30px; border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 30px;
+            text-align: center; backdrop-filter: blur(20px);
+        }
+
+        h1 { font-size: 1.7rem; color: var(--accent); margin: 0; font-weight: 300; letter-spacing: 2px; }
+
+        .pregunta-card {
+            background: var(--glass); padding: 25px; border-radius: 20px;
+            margin-bottom: 25px; backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .pregunta-titulo { font-size: 1.05rem; margin-bottom: 15px; display: block; line-height: 1.5; }
+
+        textarea {
+            width: 100%; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; color: white; padding: 12px; font-size: 16px;
+            font-family: inherit; resize: none; box-sizing: border-box;
+        }
+
+        .btn-enviar {
+            background: #fff; color: var(--bg-deep); border: none;
+            padding: 12px; border-radius: 12px; cursor: pointer;
+            font-weight: bold; width: 100%; margin-top: 10px;
+        }
+
+        .item-respuesta {
+            background: rgba(255,255,255,0.08); padding: 12px; border-radius: 12px;
+            margin-top: 10px; display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .btn-borrar { background: none; border: none; cursor: pointer; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+    <div id="toast">🔔 ¡Respuesta recibida! ✨</div>
+    <div class="galaxy-bg"></div>
+    <div class="rain" id="rainLayer"></div>
+
+    <div class="container">
+        <div class="intro">
+            <h1>Nuestro Universo ✨</h1>
+            <p style="font-size: 0.85rem; margin-top: 10px; opacity: 0.7;">
+                <strong>Nombre - Respuesta</strong>
+            </p>
+        </div>
+        <div id="muro"></div>
+    </div>
+
+<script>
+    // 1. GENERAR LLUVIA
+    const rainLayer = document.getElementById('rainLayer');
+    const dropCount = 40; // Cantidad de gotas
+
+    for (let i = 0; i < dropCount; i++) {
+        const drop = document.createElement('div');
+        drop.className = 'drop';
+        drop.style.left = Math.random() * 100 + '%';
+        drop.style.animationDuration = (Math.random() * 1 + 0.5) + 's';
+        drop.style.animationDelay = Math.random() * 2 + 's';
+        rainLayer.appendChild(drop);
+    }
+
+    // 2. CONFIGURACIÓN ABLY
+    const API_KEY = 'TU_ABLY_API_KEY'; 
+    const ably = new Ably.Realtime(API_KEY);
+    const channel = ably.channels.get('universo-rain');
+
+    channel.subscribe('update', (msg) => {
+        showToast(`✨ ${msg.data.user} respondió`);
+    });
+
+    function showToast(msj) {
+        const t = document.getElementById('toast');
+        t.innerText = msj; t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 4000);
+    }
+
+    // 3. PREGUNTAS
+    const preguntas = [
+        "¿Qué fue lo primero que pensaste cuando empezamos a hablar?",
+        "¿Cuál es el detalle más pequeño de tu día que te hace sonreír?",
+        "¿Qué cualidad valoras más en alguien que estás conociendo?",
+        "¿Cuál es el lugar donde te sientes más en paz?",
+        "¿Qué canción te recuerda a mí o a lo que estamos viviendo?",
+        "¿Cómo describirías nuestra conexión en tres palabras?",
+        "¿Qué es lo que más te gusta de tu propia personalidad?",
+        "Si pudieras viajar a cualquier lugar hoy mismo, ¿a dónde irías?",
+        "¿Cuál ha sido tu momento favorito de nosotros hasta ahora?",
+        "¿Qué es lo que más te atrajo de mi forma de ser?",
+        "¿Cuál es ese sueño loco que aún no le has contado a nadie?",
+        "¿Prefieres una cita de aventura o una charla tranquila?",
+        "¿Qué película o libro marcó un después en tu vida?",
+        "¿Qué sentiste la última vez que recibiste un mensaje mío?",
+        "¿Cuál es tu lenguaje del amor favorito?",
+        "¿Qué cualidad mía crees que es la más especial?",
+        "¿Qué hobby te gustaría que intentáramos juntos algún día?",
+        "¿Qué comida te hace sentir instantáneamente feliz?",
+        "¿Cómo manejas los días en los que no te sientes muy motivada?",
+        "¿Qué es lo más divertido que te ha pasado esta semana?",
+        "¿Qué es algo que siempre habías querido que te preguntaran?",
+        "¿Cuál es el mejor consejo que te han dado?",
+        "¿Qué es lo que más te emociona de seguir conociéndome?",
+        "¿Qué plan elegirías si tuviéramos todo un día libre juntos?",
+        "¿Cómo resumirías lo que sientes en este momento en una frase?"
+    ];
+
+    function renderizar() {
+        const contenedor = document.getElementById('muro');
+        const db = JSON.parse(localStorage.getItem('rain_v1') || "{}");
+        contenedor.innerHTML = preguntas.map((p, pIndex) => {
+            const respuestas = db[pIndex] || [];
+            return `
+                <div class="pregunta-card">
+                    <span class="pregunta-titulo">${pIndex + 1}. ${p}</span>
+                    <textarea id="input-${pIndex}" rows="2" placeholder="Nombre - Respuesta"></textarea>
+                    <button class="btn-enviar" onclick="agregar(${pIndex})">Publicar</button>
+                    <div id="lista-${pIndex}">
+                        ${respuestas.map((r, rIndex) => `
+                            <div class="item-respuesta">
+                                <span>${r}</span>
+                                <button class="btn-borrar" onclick="eliminar(${pIndex}, ${rIndex})">🗑️</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function agregar(pIndex) {
+        const input = document.getElementById(`input-${pIndex}`);
+        const texto = input.value.trim();
+        if (!texto) return;
+
+        const db = JSON.parse(localStorage.getItem('rain_v1') || "{}");
+        if (!db[pIndex]) db[pIndex] = [];
+        db[pIndex].push(texto);
+        localStorage.setItem('rain_v1', JSON.stringify(db));
+
+        const nombre = texto.split(' ')[0] || "Alguien";
+        channel.publish('update', { user: nombre });
+
+        input.value = "";
+        renderizar();
+    }
+
+    function eliminar(pIndex, rIndex) {
+        const db = JSON.parse(localStorage.getItem('rain_v1') || "{}");
+        db[pIndex].splice(rIndex, 1);
+        localStorage.setItem('rain_v1', JSON.stringify(db));
+        renderizar();
+    }
+
+    renderizar();
+</script>
+</body>
+</html>
